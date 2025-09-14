@@ -1,20 +1,20 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# Database URL //login:password@url:port/database_name
-# upper because this is const
+# ссылка на бд //логин:пароль@адрес:порт/имя_бд
+# константа, поэтому большими буквами
 SQLALCHEMY_DATABASE_URL: str = 'postgresql+psycopg2://postgres:connectToBase@localhost:5432/Shop'
 
-# engine create. Contain connection with database
+# создание движка, содержит соединение с бд
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
-#Basic models class
+#Базовый класс модели
 Base = declarative_base()
 
-#Session fabric for connections and sending requests in database
+#Создание фабрики сессий, через которые будут отправляться запросы
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# return new session
+# функция для создания новой сессии
 def get_db():
 
     try:
@@ -24,4 +24,3 @@ def get_db():
 
     finally:
         db.close()
-

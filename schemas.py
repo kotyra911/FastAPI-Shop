@@ -17,10 +17,11 @@ class UserCreate(BaseModel):  # to process the request data
     user_name: str
     check_password: str
 
-class AuthResponse(BaseModel):  # to process the response(SQLAlchemy) data
-    token_value: str
+class UserLogin(BaseModel):
+    user_login: str
+    user_password: str
+
+class MessageResponse(BaseModel):
     message: str
 
-class RegistrationResponse(BaseModel):  # to process the response(SQLAlchemy) data
-    token_value: str | None
-    message: str
+
