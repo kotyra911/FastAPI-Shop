@@ -1,9 +1,11 @@
 
 from fastapi import FastAPI, HTTPException, Response, Request, Depends
+from sqlalchemy.engine import row
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 from database import get_db
 from schemas import ProductResponse, UserCreate, MessageResponse, UserLogin, HistoryResponse
-from models import User,Product,Token
+from models import User,Product,Token, Order, Status
 from security import (hash_password,
                       generate_new_token,
                       check_register_data,
@@ -38,11 +40,42 @@ def get_product_by_id( product_id: int, db: Session = Depends(get_db)):
          return orm_data
 @app.get("/profile/username/history", response_model=list[HistoryResponse])
 def get_user_history(request: Request, db: Session = Depends(get_db)):
-    print('START GET USER HISTORY ENDPOINT')
+    print('[INFO] START GET USER HISTORY ENDPOINT')
     auth_token = request.cookies.get('auth_token')
-    if auth_token is None:
-        raise HTTPException(status_code=401, detail="Please log in")
+    if not auth_token is None:
+        db_data = db.query(Token).filter(Token.token_value == auth_token).first()
+        if db_data is None:
+            raise HTTPException(status_code=401, detail="Please log in")
+        else:
+            stmt = (
+                select(Order.order_id,
+                       Order.created_at,
+                       Order.total_price,
+                       Status.status_name
+                       )
+                .join(Status, Order.status_id == Status.status_id)  # join по status_id
+                .where(Order.user_id == db_data.user_id)  # условие отбора по user_id
+                .order_by(Order.created_at.desc())  # отсортировать по убыванию
+            )
+            print(f'[INFO] Sending sql request....: \n {stmt}')
+            result = db.execute(stmt).all()
+
+            # Так называемый list comprehension. Короткая запись перебора result и записи в словарь
+            # каждый row представляет собой sql строку с полями, к которым можно обратиться
+            history = [
+                {
+                    'order_id': row.order_id,
+                    'created_at': row.created_at,
+                    'total_price': row.total_price,
+                    'status': row.status_name
+                }
+                for row in result
+            ]
+
+            return history  # Возвращаем ответ
     else:
+        raise HTTPException(status_code=401, detail="Please log in")
+
 
 
 

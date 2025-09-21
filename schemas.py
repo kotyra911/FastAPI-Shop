@@ -28,7 +28,7 @@ class MessageResponse(BaseModel):
 
 class HistoryResponse(BaseModel):
 
-    order_id: str
+    order_id: int
     created_at: datetime
     total_price: float
     status: str

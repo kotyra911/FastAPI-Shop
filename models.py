@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Numeric, DateTime, LargeBinary
+from sqlalchemy import Column, String, Integer, Numeric, DateTime, LargeBinary, TIMESTAMP, func
 from database import Base
 from sqlalchemy import ForeignKey
 
@@ -31,6 +31,19 @@ class Role(Base):
     __tablename__ = 'roles'
     role_id = Column(Integer, primary_key=True, index=True)
     role_name = Column(String(20),unique=True, nullable=False)
+
+class Order(Base):
+    __tablename__ = 'orders'
+    order_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.user_id'))
+    created_at = Column(TIMESTAMP, nullable=False, server_default=func.now()) # Время будет выставляться в бд, а не в питоне
+    total_price = Column(Numeric(10,2), nullable=False)
+    status_id = Column(Integer, ForeignKey('statuses.status_id'))
+
+class Status(Base):
+    __tablename__ = 'statuses'
+    status_id = Column(Integer, primary_key=True, index=True)
+    status_name = Column(String(20), nullable=False)
 
 
 
