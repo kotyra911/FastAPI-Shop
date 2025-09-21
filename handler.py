@@ -2,7 +2,7 @@
 from fastapi import FastAPI, HTTPException, Response, Request, Depends
 from sqlalchemy.orm import Session
 from database import get_db
-from schemas import ProductResponse, UserCreate, MessageResponse, UserLogin
+from schemas import ProductResponse, UserCreate, MessageResponse, UserLogin, HistoryResponse
 from models import User,Product,Token
 from security import (hash_password,
                       generate_new_token,
@@ -36,6 +36,16 @@ def get_product_by_id( product_id: int, db: Session = Depends(get_db)):
      # Иначе вернуть ответ
      else:
          return orm_data
+@app.get("/profile/username/history", response_model=list[HistoryResponse])
+def get_user_history(request: Request, db: Session = Depends(get_db)):
+    print('START GET USER HISTORY ENDPOINT')
+    auth_token = request.cookies.get('auth_token')
+    if auth_token is None:
+        raise HTTPException(status_code=401, detail="Please log in")
+    else:
+
+
+
 
 
 # Регистрация нового пользователя
@@ -77,7 +87,7 @@ def register(user: UserCreate, response: Response, db: Session = Depends(get_db)
             # отправка токена в куки
             response.set_cookie(key='auth_token',  # ключ(имя)
                                 value=token,  # токен
-                                httponly=True,  # чтобы js не имел доступ к кукам
+                                httponly=True,  # чтобы js не имел доступ к кукам (защищает от XSS)
                                 samesite= 'lax',  # уровень защиты(отправка куков происходит только при переходе по ссылке)
                                 secure= False  # Определяет, по какому протоколу передаются куки(http или https)
             )

@@ -28,11 +28,13 @@ def check_register_data(user_login: str, user_email: str, db):
         'message': 'User with this email already exists!'
     }
 
-    response_success = {'message': 'You have been successfully registered!'}
+    response_success = {
+        'message': 'You have been successfully registered!'
+    }
 
     # запрашиваем пользователя по логину
     login_line = db.query(User).filter(User.user_login == user_login).first()
-    # запрашиваем пользователя по паролю
+    # запрашиваем пользователя по почте
     email_line = db.query(User).filter(User.user_email == user_email).first()
 
     # если найдены строки по логину или паролю, то вернуть ответ в зависимости от совпадения

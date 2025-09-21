@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -23,5 +25,12 @@ class UserLogin(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+class HistoryResponse(BaseModel):
+
+    order_id: str
+    created_at: datetime
+    total_price: float
+    status: str
 
 
