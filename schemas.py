@@ -1,5 +1,5 @@
 from datetime import datetime
-
+from fastapi import Form
 from pydantic import BaseModel
 
 
@@ -27,10 +27,16 @@ class MessageResponse(BaseModel):
     message: str
 
 class HistoryResponse(BaseModel):
-
     order_id: int
     created_at: datetime
     total_price: float
     status: str
+
+class ProfileEdit(BaseModel):
+        user_password: bytes | None = None
+        user_login: str | None = None
+        user_name: str | None = None
+        user_email: str | None = None
+
 
 

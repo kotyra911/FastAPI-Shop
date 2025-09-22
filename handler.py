@@ -1,16 +1,24 @@
+import hashlib
 
-from fastapi import FastAPI, HTTPException, Response, Request, Depends
+from fastapi import FastAPI, HTTPException, Response, Request, Depends, Form
+from typing import Annotated
 from sqlalchemy.engine import row
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from database import get_db
-from schemas import ProductResponse, UserCreate, MessageResponse, UserLogin, HistoryResponse
+from schemas import (ProductResponse,
+                     UserCreate,
+                     MessageResponse,
+                     UserLogin,
+                     HistoryResponse,
+                     ProfileEdit)
 from models import User,Product,Token, Order, Status
 from security import (hash_password,
                       generate_new_token,
                       check_register_data,
                       check_login_data,
                       check_cookies_token)
+import python_multipart
 
 from fastapi.responses import JSONResponse
 
@@ -38,11 +46,12 @@ def get_product_by_id( product_id: int, db: Session = Depends(get_db)):
      # Иначе вернуть ответ
      else:
          return orm_data
-@app.get("/profile/username/history", response_model=list[HistoryResponse])
+@app.get("/users/{user_id}/history", response_model=list[HistoryResponse])
 def get_user_history(request: Request, db: Session = Depends(get_db)):
     print('[INFO] START GET USER HISTORY ENDPOINT')
     auth_token = request.cookies.get('auth_token')
     if not auth_token is None:
+        print('[INFO] Get token!')
         db_data = db.query(Token).filter(Token.token_value == auth_token).first()
         if db_data is None:
             raise HTTPException(status_code=401, detail="Please log in")
@@ -57,7 +66,7 @@ def get_user_history(request: Request, db: Session = Depends(get_db)):
                 .where(Order.user_id == db_data.user_id)  # условие отбора по user_id
                 .order_by(Order.created_at.desc())  # отсортировать по убыванию
             )
-            print(f'[INFO] Sending sql request....: \n {stmt}')
+            print(f'[INFO] Sending sql request....: \n\n {stmt}\n')
             result = db.execute(stmt).all()
 
             # Так называемый list comprehension. Короткая запись перебора result и записи в словарь
@@ -221,10 +230,58 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
                 'message': 'You are not logged in!'
             }
 
+@app.patch('/users/{user_id}/edit', response_model=MessageResponse)
+def user_profile_edit(  # Принимаем данные из формы. Если данные не пришли, ставим вместо них None
+        request: Request,
+        user_password: str | None = Form(None),
+        user_login: str | None = Form(None),
+        user_name: str | None = Form(None),
+        user_email: str | None = Form(None),
+        db: Session = Depends(get_db),
+):
+    dict_data = {  # Переписываем данные в словарь
+        'user_password': user_password,
+        'user_login': user_login,
+        'user_name': user_name,
+        'user_email': user_email,
+    }
+    # Переписываем словарь сам в себя, но убираем от туда None
+    dict_data = {k:v for k, v in dict_data.items() if v is not None}
 
+    # Получаем токен из куков
+    token_from_cookies = request.cookies.get('auth_token')
+    print('\n[INFO] Get cookies...\n')
 
+    if token_from_cookies:
+        # Получаем user_id по кукам
+        user_id = db.query(Token).filter(Token.token_value == token_from_cookies).first().user_id
+        if user_id:
 
+            if "user_password" in dict_data:  # Если пользователь передал новый пароль, проводим хеширование
+                dict_data["user_password"] = hash_password(dict_data["user_password"])
+            # Получаем доступ к экземпляру класса, который нужно поменять(по user_id)
+            user_from_db = db.query(User).filter(User.user_id == user_id).first()
 
+            # Перебираем снова словарь и через setattr записываем в нужные нам атрибуты значения ключей
+            for key, value in dict_data.items():  # items возвращает пары ключ-знач
+                setattr(user_from_db, key, value)  # setattr у конкретного экземпляра меняет заданный атрибут
+
+            db.commit()
+            db.refresh(user_from_db)
+            print('\n[INFO] User profile data has been updated!\n')
+            return {
+                'message': 'Your profile data has been updated!'
+            }
+        else:
+            print('\n[INFO] User is not loggen in\n')
+            return {
+                'message': 'You are not logged in!'
+            }
+    else:
+        print('\n[INFO] User is not loggen in\n')
+        return {
+            'message': 'You are not logged in!'
+        }
 
 
 
