@@ -23,20 +23,29 @@ class UserLogin(BaseModel):
     user_login: str
     user_password: str
 
-class MessageResponse(BaseModel):
+class MessageResponse(BaseModel):  # Схема для отправки сообщения
     message: str
 
-class HistoryResponse(BaseModel):
+class HistoryResponse(BaseModel):  # Схема для отправки истории
     order_id: int
     created_at: datetime
     total_price: float
     status: str
 
-class ProfileEdit(BaseModel):
-        user_password: bytes | None = None
-        user_login: str | None = None
-        user_name: str | None = None
-        user_email: str | None = None
+class CartItemsToAdd(BaseModel):  # Схема для получения объектов на добавление в корзину
+    product_id: int
+    quantity: int
+
+    class Config:
+        orm_mode = True
+
+class CartItems(BaseModel):  # Схема для отправки содержимого корзины
+    product_name: str
+    quantity: int
+    total_price: float
+
+    class Config:
+        orm_mode = True
 
 
 

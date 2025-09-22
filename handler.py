@@ -1,4 +1,5 @@
 import hashlib
+from itertools import product
 
 from fastapi import FastAPI, HTTPException, Response, Request, Depends, Form
 from typing import Annotated
@@ -11,8 +12,10 @@ from schemas import (ProductResponse,
                      MessageResponse,
                      UserLogin,
                      HistoryResponse,
-                     ProfileEdit)
-from models import User,Product,Token, Order, Status
+                     CartItems,
+                     CartItemsToAdd
+                     )
+from models import User,Product,Token, Order, Status, CartItem
 from security import (hash_password,
                       generate_new_token,
                       check_register_data,
@@ -85,10 +88,44 @@ def get_user_history(request: Request, db: Session = Depends(get_db)):
     else:
         raise HTTPException(status_code=401, detail="Please log in")
 
+@app.get("/users/{user_id}/cart", response_model=list[CartItems])
+def get_same_cart(request: Request, db: Session = Depends(get_db)):
+    # Получаем токен из куков
+    token_from_cookies = request.cookies.get('auth_token')
+    print('\n[INFO] Get cookies...\n')
 
+    if token_from_cookies:
+        print('[INFO] Get token!')
+        user_id = db.query(Token).filter(Token.token_value == token_from_cookies).first().user_id
 
+        if user_id:
+            stmt = (
+                select(Product.product_name,
+                       CartItem.quantity,
+                       CartItem.total_price)
 
+                .join(CartItem, Product.product_id == CartItem.product_id)  # join по product_id
+                .where(CartItem.user_id == user_id))  # условие отбора по user_id
 
+            result = db.execute(stmt).all()
+
+            your_cart = [
+                {
+                'product_name': str(row.product_name),
+                'quantity': int(row.quantity),
+                'total_price': float(row.total_price)
+            }
+            for row in result
+            ]
+            return your_cart
+        else:
+            return {
+                'message': 'Please log in'
+            }
+    else:
+        return {
+            'message': 'Please log in'
+        }
 
 # Регистрация нового пользователя
 @app.post('/register', response_model= MessageResponse)
@@ -153,6 +190,20 @@ def register(user: UserCreate, response: Response, db: Session = Depends(get_db)
         return message
 
 
+@app.post('/users/{user_id}/orders/new', response_model= MessageResponse)
+def new_order(user: UserCreate, request: Request, db: Session = Depends(get_db)):
+    print('\n[INFO] Try to get cookies...\n')
+    token_from_cookies = request.cookies.get('auth_token')
+
+    if token_from_cookies:
+        print('\n[INFO] Get token!')
+
+
+
+
+
+
+
 # Аутентификация
 @app.post('/login', response_model=MessageResponse)
 def login(user: UserLogin, response: Response, request: Request, db: Session = Depends(get_db)):
@@ -200,6 +251,40 @@ def login(user: UserLogin, response: Response, request: Request, db: Session = D
 
         return {
             'message': 'You are already logged in!'
+        }
+
+@app.post('/products/{product_id}/add', response_model=MessageResponse)
+def add_to_cart(cart: CartItemsToAdd, request: Request, db: Session = Depends(get_db)):
+    # Получаем токен из куков
+    token_from_cookies = request.cookies.get('auth_token')
+    print('\n[INFO] Get cookies...\n')
+
+    if token_from_cookies:
+        # Получаем user_id по токену
+        user_id = db.query(Token).filter(Token.token_value == token_from_cookies).first().user_id
+        if user_id:
+            product_price = db.query(Product).filter(Product.product_id == cart.product_id).first().product_price
+            total_price = product_price * cart.quantity
+            new_cart = CartItem(
+                                user_id = user_id,
+                                product_id = cart.product_id,
+                                quantity = cart.quantity,
+                                total_price = total_price,
+            )
+            db.add(new_cart)
+            db.commit()
+            db.refresh(new_cart)
+
+            return {
+                'message': 'Added to your cart!'
+            }
+        else:
+            return {
+                'message': 'Please login first!'
+            }
+    else:
+        return {
+            'message': 'Please login first!'
         }
 
 # Выйти из профиля

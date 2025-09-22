@@ -45,6 +45,14 @@ class Status(Base):
     status_id = Column(Integer, primary_key=True, index=True)
     status_name = Column(String(20), nullable=False)
 
+class CartItem(Base):
+    __tablename__ = 'cartitems'
+    cart_item_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.user_id'))
+    product_id = Column(Integer, ForeignKey('products.product_id'))
+    quantity = Column(Integer, nullable=False)
+    total_price = Column(Numeric(10,2), nullable=False)
+
 
 
 
