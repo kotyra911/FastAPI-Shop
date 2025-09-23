@@ -13,7 +13,7 @@ from schemas import (ProductResponse,
                      UserLogin,
                      HistoryResponse,
                      CartItems,
-                     CartItemsToAdd)
+                     CartItemsToAdd, AddProduct, DeleteProduct)
 from models import User, Product, Token, Order, Status, CartItem, OrderItem
 from security import (hash_password,
                       generate_new_token,
@@ -338,6 +338,71 @@ def add_to_cart(cart: CartItemsToAdd, request: Request, db: Session = Depends(ge
             'message': 'Please login first!'
         }
 
+@app.post('/products/add', response_model=MessageResponse)
+def add_product(new_product: AddProduct, request: Request, db: Session = Depends(get_db)):
+
+    # Получаем токен из куков
+    token_from_cookies = request.cookies.get('auth_token')
+    print('\n[INFO] Get cookies...\n')
+
+    if token_from_cookies:
+        user_id = db.query(Token).filter(Token.token_value == token_from_cookies).first().user_id
+        if user_id:
+            # Получаем роль
+            role_id = db.query(User).filter(User.user_id == user_id).first().role_id
+            # Если админка, то позволяем пройти дальше
+            if role_id == 2:
+                # Создание нового товара (ORM)
+                product_to_add = Product(
+                    product_name = new_product.product_name,
+                    product_price = new_product.product_price,
+                    units_in_stock = new_product.units_in_stock,
+                )
+                db.add(product_to_add)
+                db.commit()
+                db.refresh(product_to_add)
+
+                return {
+                    'message': 'New product added to shop'
+                }
+            else:
+               raise HTTPException(status_code=403, detail="You don't have permission to do that!")
+        else:
+            raise HTTPException(status_code=401, detail="Please login first!")
+    else:
+        raise HTTPException(status_code=401, detail="Please login first!")
+
+# Тестовый эндпоинт, чтобы просто создать админа
+@app.post('/admin/create', response_model=MessageResponse)
+def create_admin(response: Response, db: Session = Depends(get_db)):
+
+    user_admin = User(
+        user_login = 'kotyra911',
+        user_password = hash_password('111'),
+        user_name = 'Matvey',
+        user_email = 'admin@admin.com',
+        role_id = 2
+    )
+    db.add(user_admin)
+    db.commit()
+    db.refresh(user_admin)
+
+    token = generate_new_token()
+    new_token = Token(token_value = token, user_id = user_admin.user_id)
+    db.add(new_token)
+    db.commit()
+    db.refresh(new_token)
+
+    response.set_cookie(key='auth_token',
+                        value=token,
+                        httponly=True,
+                        samesite='lax',
+                        secure=False)
+
+    return {
+        'message': 'ok'
+    }
+
 # Выйти из профиля
 @app.delete('/logout', response_model=MessageResponse)
 def logout(request: Request, response: Response, db: Session = Depends(get_db)):
@@ -365,6 +430,37 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
             return {
                 'message': 'You are not logged in!'
             }
+
+@app.delete('/products/{product_id}/delete', response_model=MessageResponse)
+def delete_product(product_id: DeleteProduct, request: Request, db: Session = Depends(get_db)):
+    token_from_cookies= request.cookies.get('auth_token')
+    if token_from_cookies:
+        user_id = db.query(Token).filter(Token.token_value == token_from_cookies).first().user_id
+        if user_id:
+            # Получаем роль
+            role_id = db.query(User).filter(User.user_id == user_id).first().role_id
+            # Если админка, то позволяем пройти дальше
+            if role_id == 2:
+                # Удаление товара по product_id
+                db.query(Product).filter(Product.product_id == product_id).delete()
+                db.commit()
+
+                return {
+                    'message': 'Product has been deleted'
+                }
+            else:
+                return {
+                    'message': 'You are not have permission to do that!'
+                }
+        else:
+            return {
+                'message': 'Please login first!'
+            }
+    else:
+        return {
+            'message': 'Please login first!'
+        }
+
 
 @app.patch('/users/{user_id}/edit', response_model=MessageResponse)
 def user_profile_edit(  # Принимаем данные из формы. Если данные не пришли, ставим вместо них None

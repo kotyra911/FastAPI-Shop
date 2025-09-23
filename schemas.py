@@ -47,5 +47,12 @@ class CartItems(BaseModel):  # Схема для отправки содержи
     class Config:
         orm_mode = True
 
+class AddProduct(BaseModel):
+    product_name: str
+    product_price: float
+    units_in_stock: int
+
+class DeleteProduct(BaseModel):
+    product_id: int
 
 
