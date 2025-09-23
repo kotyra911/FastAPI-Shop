@@ -121,13 +121,9 @@ def get_same_cart(request: Request, db: Session = Depends(get_db)):
             ]
             return your_cart
         else:
-            return {
-                'message': 'Please log in'
-            }
+            raise HTTPException(status_code=401, detail="Please log in")
     else:
-        return {
-            'message': 'Please log in'
-        }
+        raise HTTPException(status_code=401, detail="Please log in")
 
 # Регистрация нового пользователя
 @app.post('/register', response_model= MessageResponse)
@@ -209,7 +205,7 @@ def new_order(request: Request, db: Session = Depends(get_db)):
                 .where(CartItem.user_id == user_id))    #GROUP BY user_id
                                                         #HAVING (user_id == user_id)
 
-            # .scalar() вместо списка кортежей, возвращает просто int
+            # .scalar() вместо списка кортежей возвращает просто int
             total_price = db.execute(stmt).scalar()
 
             # Создание нового экземпляра ORM модели заказов
@@ -240,19 +236,21 @@ def new_order(request: Request, db: Session = Depends(get_db)):
                     quantity = quantity,
                 )
                 db.add(order_i)
+
+
+            # После формирования заказа нужно удалить корзину из которой был сформирован заказ
+            db.query(CartItem).filter(CartItem.user_id == user_id).delete()
+
             db.commit()
+
 
             return {
                 'message':'Order was created! You can check all orders in your profile',
             }
         else:
-            return {
-                'message': 'Please log in'
-            }
+            raise HTTPException(status_code=401, detail="Please log in")
     else:
-        return {
-            'message': 'Please log in'
-        }
+        raise HTTPException(status_code=401, detail="Please log in")
 
 
 

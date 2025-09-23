@@ -58,6 +58,8 @@ class OrderItem(Base):
     order_item_id = Column(Integer, primary_key=True, index=True)
     order_id = Column(Integer, ForeignKey('orders.order_id'))
     product_id = Column(Integer, ForeignKey('products.product_id'))
+    quantity = Column(Integer, nullable=False)
+
 
 
 
