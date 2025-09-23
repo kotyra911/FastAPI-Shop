@@ -55,4 +55,8 @@ class AddProduct(BaseModel):
 class DeleteProduct(BaseModel):
     product_id: int
 
+class RoleSwitcher(BaseModel):
+    user_id: int
+    role_id: int
+
 

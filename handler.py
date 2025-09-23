@@ -13,8 +13,8 @@ from schemas import (ProductResponse,
                      UserLogin,
                      HistoryResponse,
                      CartItems,
-                     CartItemsToAdd, AddProduct, DeleteProduct)
-from models import User, Product, Token, Order, Status, CartItem, OrderItem
+                     CartItemsToAdd, AddProduct, DeleteProduct, RoleSwitcher)
+from models import User, Product, Token, Order, Status, CartItem, OrderItem, Role
 from security import (hash_password,
                       generate_new_token,
                       check_register_data,
@@ -449,17 +449,11 @@ def delete_product(product_id: DeleteProduct, request: Request, db: Session = De
                     'message': 'Product has been deleted'
                 }
             else:
-                return {
-                    'message': 'You are not have permission to do that!'
-                }
+                raise HTTPException(status_code=403, detail="You don't have permission to do that!")
         else:
-            return {
-                'message': 'Please login first!'
-            }
+            raise HTTPException(status_code=401, detail="Please login first!")
     else:
-        return {
-            'message': 'Please login first!'
-        }
+        raise HTTPException(status_code=401, detail="Please login first!")
 
 
 @app.patch('/users/{user_id}/edit', response_model=MessageResponse)
@@ -514,6 +508,37 @@ def user_profile_edit(  # Принимаем данные из формы. Ес�
         return {
             'message': 'You are not logged in!'
         }
+
+@app.patch('/users/{user_id}/role/edit', response_model=MessageResponse)
+def user_switch_role(role_switcher: RoleSwitcher, request: Request, db: Session = Depends(get_db)):
+    # Получаем токен из куков
+    token_from_cookies = request.cookies.get('auth_token')
+    print('\n[INFO] Get cookies...\n')
+
+    if token_from_cookies:
+        # Получаем user_id по кукам
+        user_id = db.query(Token).filter(Token.token_value == token_from_cookies).first().user_id
+        if user_id:
+            role_id = db.query(User).filter(User.user_id == user_id).first().role_id
+            # Если админка, то позволяем пройти дальше
+            if role_id == 2:
+                db.query(User).filter(User.user_id == role_switcher.user_id).update({
+                    User.role_id: role_switcher.role_id
+                })
+                db.commit()
+                return {
+                    'message': 'User role has been updated!'
+                }
+            else:
+                raise HTTPException(status_code=403, detail="You don't have permission to do that!")
+        else:
+            raise HTTPException(status_code=401, detail="Please login first!")
+    else:
+        raise HTTPException(status_code=401, detail="Please login first!")
+
+
+
+
 
 
 
