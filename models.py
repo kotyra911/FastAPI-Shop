@@ -53,6 +53,13 @@ class CartItem(Base):
     quantity = Column(Integer, nullable=False)
     total_price = Column(Numeric(10,2), nullable=False)
 
+class OrderItem(Base):
+    __tablename__ = 'orderitems'
+    order_item_id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey('orders.order_id'))
+    product_id = Column(Integer, ForeignKey('products.product_id'))
+
+
 
 
 

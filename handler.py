@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException, Response, Request, Depends, Form
 from typing import Annotated
 from sqlalchemy.engine import row
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, func
 from database import get_db
 from schemas import (ProductResponse,
                      UserCreate,
@@ -13,9 +13,8 @@ from schemas import (ProductResponse,
                      UserLogin,
                      HistoryResponse,
                      CartItems,
-                     CartItemsToAdd
-                     )
-from models import User,Product,Token, Order, Status, CartItem
+                     CartItemsToAdd)
+from models import User, Product, Token, Order, Status, CartItem, OrderItem
 from security import (hash_password,
                       generate_new_token,
                       check_register_data,
@@ -37,6 +36,7 @@ def get_all_products(db: Session = Depends(get_db)):
     print('START GET ALL PRODUCT ENDPOINT')
     return db.query(Product).all()
 
+
 # Получить конкретный продукт по id
 @app.get("/products/{product_id}", response_model=ProductResponse)
 def get_product_by_id( product_id: int, db: Session = Depends(get_db)):
@@ -49,6 +49,8 @@ def get_product_by_id( product_id: int, db: Session = Depends(get_db)):
      # Иначе вернуть ответ
      else:
          return orm_data
+
+
 @app.get("/users/{user_id}/history", response_model=list[HistoryResponse])
 def get_user_history(request: Request, db: Session = Depends(get_db)):
     print('[INFO] START GET USER HISTORY ENDPOINT')
@@ -189,17 +191,68 @@ def register(user: UserCreate, response: Response, db: Session = Depends(get_db)
         # ответ в случае если пользователь с таким email или login уже существует
         return message
 
-
+# Оформление заказа
 @app.post('/users/{user_id}/orders/new', response_model= MessageResponse)
-def new_order(user: UserCreate, request: Request, db: Session = Depends(get_db)):
+def new_order(request: Request, db: Session = Depends(get_db)):
     print('\n[INFO] Try to get cookies...\n')
     token_from_cookies = request.cookies.get('auth_token')
 
     if token_from_cookies:
         print('\n[INFO] Get token!')
 
+        user_id = db.query(Token).filter(Token.token_value == token_from_cookies).first().user_id
+        if user_id:
+            # Запрос, чтобы посчитать все сумму, на которую пользователь набрал товаров
+            stmt = (
+                select(func.sum(CartItem.total_price))  #SELECT sum(total_price)
+                .group_by(CartItem.user_id)             #FROM cartitems
+                .where(CartItem.user_id == user_id))    #GROUP BY user_id
+                                                        #HAVING (user_id == user_id)
 
+            # .scalar() вместо списка кортежей, возвращает просто int
+            total_price = db.execute(stmt).scalar()
 
+            # Создание нового экземпляра ORM модели заказов
+            order_new = Order(
+                user_id = user_id,
+                total_price = total_price,
+                status_id = 1
+            )
+            db.add(order_new)
+            db.commit()
+            db.refresh(order_new)
+
+            # Сразу вытаскиваем order_id, чтобы подставлять его в следующую таблицу
+            order_id = order_new.order_id
+
+            # Подтягиваем данные из корзины и их же добавляем
+            stmt = (
+                select(CartItem.product_id,CartItem.quantity,)
+                .where(CartItem.user_id == user_id)  # условие отбора по user_id
+            )
+
+            result = db.execute(stmt).all()
+            # Через цикл добавляем несколько новых строк
+            for product_id, quantity in result:  # result = [(xxx,yyy), (xx,yy), (yyy,xxx)]
+                order_i = OrderItem(
+                    order_id = order_id,
+                    product_id = product_id,
+                    quantity = quantity,
+                )
+                db.add(order_i)
+            db.commit()
+
+            return {
+                'message':'Order was created! You can check all orders in your profile',
+            }
+        else:
+            return {
+                'message': 'Please log in'
+            }
+    else:
+        return {
+            'message': 'Please log in'
+        }
 
 
 
