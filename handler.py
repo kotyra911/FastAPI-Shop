@@ -431,7 +431,7 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
                 'message': 'You are not logged in!'
             }
 
-@app.delete('/products/{product_id}/delete', response_model=MessageResponse)
+@app.delete('/products/delete', response_model=MessageResponse)
 def delete_product(product_id: DeleteProduct, request: Request, db: Session = Depends(get_db)):
     token_from_cookies= request.cookies.get('auth_token')
     if token_from_cookies:
@@ -442,7 +442,7 @@ def delete_product(product_id: DeleteProduct, request: Request, db: Session = De
             # Если админка, то позволяем пройти дальше
             if role_id == 2:
                 # Удаление товара по product_id
-                db.query(Product).filter(Product.product_id == product_id).delete()
+                db.query(Product).filter(Product.product_id == product_id.product_id).delete()
                 db.commit()
 
                 return {
