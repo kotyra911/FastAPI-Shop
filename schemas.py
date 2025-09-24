@@ -47,6 +47,10 @@ class CartItems(BaseModel):  # Схема для отправки содержи
     class Config:
         orm_mode = True
 
+class CartResponse(BaseModel):
+    total_price: float
+    items: list[CartItems]
+
 class AddProduct(BaseModel):
     product_name: str
     product_price: float
@@ -58,6 +62,10 @@ class DeleteProduct(BaseModel):
 class RoleSwitcher(BaseModel):
     user_id: int
     role_id: int
+
+class StatusSwitcher(BaseModel):
+    order_id: int
+    status_id: int
 
 
 

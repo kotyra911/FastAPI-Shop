@@ -9,13 +9,12 @@ from sqlalchemy.ext.instrumentation import find_native_user_instrumentation_hook
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 from database import get_db
-from schemas import (ProductResponse,
-                     UserCreate,
-                     MessageResponse,
-                     UserLogin,
-                     HistoryResponse,
-                     CartItems,
-                     CartItemsToAdd, AddProduct, DeleteProduct, RoleSwitcher)
+from schemas import (ProductResponse, UserCreate,
+                     MessageResponse, UserLogin,
+                     HistoryResponse, CartItems,
+                     CartItemsToAdd, AddProduct,
+                     DeleteProduct, RoleSwitcher,
+                     StatusSwitcher, CartResponse)
 from models import User, Product, Token, Order, Status, CartItem, OrderItem, Role
 from security import (hash_password,
                       generate_new_token,
@@ -37,87 +36,118 @@ app = FastAPI()
 # = Depend(get_db) указывает, что fast api должна сама вызвать функцию, достать результат и активировать блок finally
 def get_all_products(db: Session = Depends(get_db)):
     print('START GET ALL PRODUCT ENDPOINT')
-    return db.query(Product).filter(Product.soft_delete == False).all()
+    return db.query(Product).filter(
+        (Product.soft_delete == False) & (Product.units_in_stock > 0) # Условие, которое проверяет, что товар не удален
+    ).all()                                                                                       # и есть в наличии
 
 
 # Получить конкретный продукт по id
 @app.get("/products/{product_id}", response_model=ProductResponse)
 def get_product_by_id( product_id: int, db: Session = Depends(get_db)):
-     print('START GET SAME PRODUCT ENDPOINT')
+     print('[INFO] Starting get user history endpoint...')
      # Запрос в бд
+     print('[INFO] Sending SQL request...')
      orm_data = db.query(Product).filter(Product.product_id == product_id).first()
      # Если ничего не найдено, вызвать ошибку
      if orm_data is None:
+         print('[INFO] Product not found!')
+         print('[INFO] Sending response...')
          raise HTTPException(status_code=404, detail="Product not found")
      # Иначе вернуть ответ
      else:
+         print('[INFO] Sending response with data...')
          return orm_data
 
 
 @app.get("/users/{user_id}/history", response_model=list[HistoryResponse])
 def get_user_history(request: Request, db: Session = Depends(get_db)):
-    print('[INFO] START GET USER HISTORY ENDPOINT')
-    auth_token = request.cookies.get('auth_token')
-    if not auth_token is None:
-        print('[INFO] Get token!')
-        db_data = db.query(Token).filter(Token.token_value == auth_token).first()
-        if db_data is None:
-            raise HTTPException(status_code=401, detail="Please log in")
-        else:
-            stmt = (
-                select(Order.order_id,
-                       Order.created_at,
-                       Order.total_price,
-                       Status.status_name
-                       )
-                .join(Status, Order.status_id == Status.status_id)  # join по status_id
-                .where(Order.user_id == db_data.user_id)  # условие отбора по user_id
-                .order_by(Order.created_at.desc())  # отсортировать по убыванию
-            )
-            print(f'[INFO] Sending sql request....: \n\n {stmt}\n')
-            result = db.execute(stmt).all()
-
-            # Так называемый list comprehension. Короткая запись перебора result и записи в словарь
-            # каждый row представляет собой sql строку с полями, к которым можно обратиться
-            history = [
-                {
-                    'order_id': row.order_id,
-                    'created_at': row.created_at,
-                    'total_price': row.total_price,
-                    'status': row.status_name
-                }
-                for row in result
-            ]
-
-            return history  # Возвращаем ответ
-    else:
-        raise HTTPException(status_code=401, detail="Please log in")
-
-@app.get("/users/{user_id}/cart", response_model=list[CartItems])
-def get_same_cart(request: Request, db: Session = Depends(get_db)):
+    print('[INFO] Starting get user history endpoint')
+    print('\n[INFO] Starting get out cart process...\n')
     user_id = user_id_by_token(db, request)
+    print('\n[INFO] Try to get cookies...\n')
     if user_id:
+        print('\n[INFO] Get it...\n')
         stmt = (
-            select(Product.product_name,
-                    CartItem.quantity,
-                    CartItem.total_price)
-
-            .join(CartItem, Product.product_id == CartItem.product_id)  # join по product_id
-            .where(CartItem.user_id == user_id))  # условие отбора по user_id
-
+            select(Order.order_id,
+                    Order.created_at,
+                    Order.total_price,
+                    Status.status_name
+                    )
+            .join(Status, Order.status_id == Status.status_id)  # join по status_id
+            .where(Order.user_id == user_id)  # условие отбора по user_id
+            .order_by(Order.created_at.desc())  # отсортировать по убыванию
+        )
+        print(f'[INFO] Sending sql request....: \n\n {stmt}\n')
         result = db.execute(stmt).all()
 
+        # Так называемый list comprehension. Короткая запись перебора result и записи в словарь
+        # каждый row представляет собой sql строку с полями, к которым можно обратиться
+        print('\n[INFO] Creating response dict...\n')
+        history = [
+            {
+                'order_id': row.order_id,
+                'created_at': row.created_at,
+                'total_price': row.total_price,
+                'status': row.status_name
+            }
+            for row in result
+        ]
+        print('\n[INFO] Creating response dict...\n')
+        print('\n[INFO] Sending response...\n')
+        return history  # Возвращаем ответ
+    else:
+        print('\n[INFO] User not login!\n')
+        print('\n[INFO] Sending response...\n')
+        raise HTTPException(status_code=401, detail="Please log in")
+
+# Функция для просмотра своей корзины (нужно немного переписать: Совместить одинаковые товары и общую стоимость)
+@app.get("/users/{user_id}/cart", response_model=CartResponse)
+def get_same_cart(request: Request, db: Session = Depends(get_db)):
+    print('\n[INFO] Starting get out cart process...\n')
+    user_id = user_id_by_token(db, request)
+    print('\n[INFO] Try to get cookies...\n')
+    if user_id:
+        print('\n[INFO] Get it!\n')
+        # Запрос с join(ом), чтобы получить имя товара в нормальной форме
+        print('\n[INFO] Sending SQL request!\n')
+        stmt = (
+            select(
+                Product.product_name,
+                func.sum(CartItem.quantity).label("quantity"),
+                func.sum(CartItem.total_price).label("total_price")
+            )
+            .join(CartItem, Product.product_id == CartItem.product_id)
+            .where(CartItem.user_id == user_id)
+            .group_by(Product.product_name)
+        )
+        print('\n[INFO] Success!\n')
+        result = db.execute(stmt).all()
+        # Создание нового словаря для ответа
+        print('\n[INFO] Creating new cart...\n')
         your_cart = [
             {
             'product_name': str(row.product_name),
             'quantity': int(row.quantity),
             'total_price': float(row.total_price)
         }
-        for row in result
+        for row in result # Перебор всех полученных строк и каждую итерацию создание нового словаря
         ]
-        return your_cart
+
+        stmt_total = (
+            select(func.sum(CartItem.total_price))
+            .where(CartItem.user_id == user_id)
+        )
+
+        total_cart_price = db.execute(stmt_total).scalar()
+
+        print('\n[INFO] Created!\n')
+        print('\n[INFO] Sending response...\n')
+
+        return CartResponse(total_price=total_cart_price, items= your_cart)
 
     else:
+        print('\n[INFO] User not login!\n')
+        print('\n[INFO] Sending response...\n')
         raise HTTPException(status_code=401, detail="Please login first!")
 
 # Регистрация нового пользователя
@@ -299,19 +329,22 @@ def login(user: UserLogin, response: Response, request: Request, db: Session = D
         return {
             'message': 'You are already logged in!'
         }
-
+# Добавление нового товара в корзину
 @app.post('/products/{product_id}/add', response_model=MessageResponse)
 def add_to_cart(cart: CartItemsToAdd, request: Request, db: Session = Depends(get_db)):
     user_id = user_id_by_token(db, request)
     if user_id:
+            # Проверка, есть ли этот товар в наличии (в реализации на сайте просто не будет высвечиваться товар, если его нет)
             units_in_stock = db.query(Product).filter(Product.product_id == cart.product_id).first().units_in_stock
             if units_in_stock == 0:
                 return {
                     'message': 'The product is out of stock :('
                 }
             else:
+                # Получение данных о товаре, который пользователь хочет добавить
                 product_price = db.query(Product).filter(Product.product_id == cart.product_id).first().product_price
                 total_price = product_price * cart.quantity
+                # Создание новой корзины через объект ORM
                 new_cart = CartItem(
                                     user_id = user_id,
                                     product_id = cart.product_id,
@@ -327,6 +360,7 @@ def add_to_cart(cart: CartItemsToAdd, request: Request, db: Session = Depends(ge
     else:
         raise HTTPException(status_code=401, detail="Please login first!")
 
+# Админская функция для добавления нового товара
 @app.post('/products/add', response_model=MessageResponse)
 def add_product(new_product: AddProduct, request: Request, db: Session = Depends(get_db)):
     user_id = user_id_by_token(db, request)
@@ -528,6 +562,22 @@ def edit_product(request: Request,
         raise HTTPException(status_code=401, detail="Please login first!")
 
 
+@app.patch('/orders/status/edit', response_model=MessageResponse)
+def edit_order_status(switch_data: StatusSwitcher, request: Request, db: Session = Depends(get_db)):
+    user_id = user_id_by_token(db, request)
+    if user_id:
+        role_id = db.query(User).filter(User.user_id == user_id).first().role_id
+        if role_id == 2:
+            order_to_edit = db.query(Order).filter(Order.order_id == switch_data.order_id).first()
+            order_to_edit.status_id = switch_data.status_id
+            db.commit()
+            return {
+                'message': 'Order status has been updated!'
+            }
+        else:
+            raise HTTPException(status_code=403, detail="You don't have permission to do that!")
+    else:
+        raise HTTPException(status_code=401, detail="Please login first!")
 
 
 
