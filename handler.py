@@ -37,7 +37,7 @@ app = FastAPI()
 # = Depend(get_db) указывает, что fast api должна сама вызвать функцию, достать результат и активировать блок finally
 def get_all_products(db: Session = Depends(get_db)):
     print('START GET ALL PRODUCT ENDPOINT')
-    return db.query(Product).all()
+    return db.query(Product).filter(Product.soft_delete == False).all()
 
 
 # Получить конкретный продукт по id
@@ -421,7 +421,8 @@ def delete_product(product_id: DeleteProduct, request: Request, db: Session = De
         # Если админка, то позволяем пройти дальше
         if role_id == 2:
             # Удаление товара по product_id
-            db.query(Product).filter(Product.product_id == product_id.product_id).delete()
+            product_to_delete = db.query(Product).filter(Product.product_id == product_id.product_id).first()
+            product_to_delete.soft_delete = True
             db.commit()
 
             return {
