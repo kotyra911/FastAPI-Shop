@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Numeric, DateTime, LargeBinary, TIMESTAMP, func
+from sqlalchemy import Column, String, Integer, Numeric, DateTime, LargeBinary, TIMESTAMP, func, Boolean
 from database import Base
 from sqlalchemy import ForeignKey
 
@@ -11,6 +11,7 @@ class Product(Base):
     product_name = Column(String(30), nullable=False)
     product_price = Column(Numeric(10,2), nullable=False)
     units_in_stock = Column(Integer, nullable=False)
+    soft_delete = Column(Boolean, nullable=False, default=False)
 
 class User(Base):
     __tablename__ = 'users'

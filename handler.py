@@ -5,6 +5,7 @@ from itertools import product
 from fastapi import FastAPI, HTTPException, Response, Request, Depends, Form
 from typing import Annotated
 from sqlalchemy.engine import row
+from sqlalchemy.ext.instrumentation import find_native_user_instrumentation_hook
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 from database import get_db
@@ -216,15 +217,23 @@ def new_order(request: Request, db: Session = Depends(get_db)):
         )
 
         result = db.execute(stmt).all()
+        # Получаем продукт, чтобы уменьшать количество товара не складе
+        product_units_delete = db.query(Product).filter(Product.product_id == result[0][0]).first()
         # Через цикл добавляем несколько новых строк
         for product_id, quantity in result:  # result = [(xxx,yyy), (xx,yy), (yyy,xxx)]
+            # Если товара на складе не хватает
+            if product_units_delete.units_in_stock < quantity:
+                return {
+                    "message": f"Sorry, we don't have enough units in stock! Please try again later",
+                }
+            # Уменьшаем количество товара
+            product_units_delete.units_in_stock -= quantity
             order_i = OrderItem(
                 order_id = order_id,
                 product_id = product_id,
                 quantity = quantity,
             )
             db.add(order_i)
-
 
         # После формирования заказа нужно удалить корзину из которой был сформирован заказ
         db.query(CartItem).filter(CartItem.user_id == user_id).delete()
@@ -295,21 +304,26 @@ def login(user: UserLogin, response: Response, request: Request, db: Session = D
 def add_to_cart(cart: CartItemsToAdd, request: Request, db: Session = Depends(get_db)):
     user_id = user_id_by_token(db, request)
     if user_id:
-            product_price = db.query(Product).filter(Product.product_id == cart.product_id).first().product_price
-            total_price = product_price * cart.quantity
-            new_cart = CartItem(
-                                user_id = user_id,
-                                product_id = cart.product_id,
-                                quantity = cart.quantity,
-                                total_price = total_price,
-            )
-            db.add(new_cart)
-            db.commit()
-            db.refresh(new_cart)
-
-            return {
-                'message': 'Added to your cart!'
-            }
+            units_in_stock = db.query(Product).filter(Product.product_id == cart.product_id).first().units_in_stock
+            if units_in_stock == 0:
+                return {
+                    'message': 'The product is out of stock :('
+                }
+            else:
+                product_price = db.query(Product).filter(Product.product_id == cart.product_id).first().product_price
+                total_price = product_price * cart.quantity
+                new_cart = CartItem(
+                                    user_id = user_id,
+                                    product_id = cart.product_id,
+                                    quantity = cart.quantity,
+                                    total_price = total_price,
+                )
+                db.add(new_cart)
+                db.commit()
+                db.refresh(new_cart)
+                return {
+                    'message': 'Added to your cart!'
+                }
     else:
         raise HTTPException(status_code=401, detail="Please login first!")
 
@@ -477,6 +491,41 @@ def user_switch_role(role_switcher: RoleSwitcher, request: Request, db: Session 
             raise HTTPException(status_code=403, detail="You don't have permission to do that!")
     else:
         raise HTTPException(status_code=401, detail="Please login first!")
+
+
+@app.patch('/products/edit', response_model=MessageResponse)
+def edit_product(request: Request,
+        product_id: int | None = Form(None),
+        product_name: str | None = Form(None),
+        product_price: float | None = Form(None),
+        units_in_stock: int | None = Form(None),
+        db: Session = Depends(get_db),
+                ):
+    user_id = user_id_by_token(db, request)
+    if user_id:
+        role_id = db.query(User).filter(User.user_id == user_id).first().role_id
+        if role_id == 2:
+            product_from_db = db.query(Product).filter(Product.product_id == product_id).first()
+            dict_data = {  # Переписываем данные в словарь
+                'product_name': product_name,
+                'product_price': product_price,
+                'units_in_stock': units_in_stock,
+            }
+
+            dict_data = {k:v for k, v in dict_data.items() if v is not None}
+
+            for key, value in dict_data.items():
+                setattr(product_from_db, key, value)
+
+            db.commit()
+            return {
+                'message': 'Product has been updated!'
+            }
+        else:
+            raise HTTPException(status_code=403, detail="You don't have permission to do that!")
+    else:
+        raise HTTPException(status_code=401, detail="Please login first!")
+
 
 
 
