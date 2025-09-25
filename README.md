@@ -12,7 +12,7 @@ Backend для интернет-магазина на FastAPI + PostgreSQL
 ## Установка
 1. Клонируем репозиторий:
    ```bash
-   git clone https://github.com/kotyra911/FastAPI-Shop.git)
+   git clone - https://github.com/kotyra911/fastapi-shop.git
    cd FastAPI-Shop
    
 2. Создаем виртуальное окржуение и активируем(ниже пример для Windows):
