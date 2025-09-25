@@ -1,5 +1,5 @@
 # Проект: Интернет-Магазин техники
-Backend для интернет-магазина на FastAPI + PostgreSQL
+Backend для интернет-магазина на FastAPI + PostgreSQL (учебный проект)
 
 ## Технологии
 - Python 3.11
@@ -13,7 +13,7 @@ Backend для интернет-магазина на FastAPI + PostgreSQL
 1. Клонируем репозиторий:
    ```bash
    git clone - https://github.com/kotyra911/fastapi-shop.git
-   cd FastAPI-Shop
+   cd fastapi-shop
    
 2. Создаем виртуальное окржуение и активируем(ниже пример для Windows):
    ```bash
