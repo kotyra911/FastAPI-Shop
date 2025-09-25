@@ -7,6 +7,7 @@ Backend для интернет-магазина на FastAPI + PostgreSQL
 - SQLAlchemy
 - PostgreSQL
 - Pydantic
+- Pytest
 
 ## Установка
 1. Клонируем репозиторий:
@@ -29,6 +30,21 @@ Backend для интернет-магазина на FastAPI + PostgreSQL
    ```bash
    uvicorn handler:app
    или
-   uvicorn handler:app --reload (сервер будет самостоятельно перезагружаться при изминениях)
+   uvicorn handler:app --reload (сервер будет самостоятельно перезагружаться при изменениях)
 
+## Навигация 
+
+
+### .py
+1. tests/ --> Тесты (pytest)
+2. handler.py --> Содержит сам app а также все эндпоинты
+3. database.py --> Содержит движок, фабрику сессий и функцию по созданию новой сессии
+4. models.py --> ORM модели базы данных
+5. schemas.py --> Pydantic-схемы
+6. security --> Разнообразные функции для проверки данных, хеширование и т.п.
+### tools
+1. SqlScripts/ --> Содержит важные SQL запросы(например скрипт создания бд)
+2. pytest.ini --> Конфиг файл для настройки pytest
+3. requirements.txt --> Файл с зависимостями
+4. .env_example --> Содержит пример содержимого для .env, который вы сами создаете
    
