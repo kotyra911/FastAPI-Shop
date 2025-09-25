@@ -47,4 +47,15 @@ Backend для интернет-магазина на FastAPI + PostgreSQL
 2. pytest.ini --> Конфиг файл для настройки pytest
 3. requirements.txt --> Файл с зависимостями
 4. .env_example --> Содержит пример содержимого для .env, который вы сами создаете
+
+## Пример запроса через командную строку(curl)
+
+      ```bash
+      curl -X GET "http://127.0.0.1:8000/products" -H "accept: application/json"
+
+
+## Связаться со мной
+
+
+
    
