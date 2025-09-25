@@ -1,0 +1,81 @@
+DROP TABLE IF EXISTS cartitems, orderitems, orders, products, roles, statuses, tokens, users CASCADE;
+
+-- ----------------------------
+-- Создание таблиц
+-- ----------------------------
+CREATE TABLE products (
+    product_id SERIAL PRIMARY KEY,
+    product_name VARCHAR(30) NOT NULL,
+    product_price NUMERIC(10,2) NOT NULL,
+    units_in_stock INT NOT NULL,
+    soft_delete BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE roles (
+    role_id SERIAL PRIMARY KEY,
+    role_name VARCHAR(20) NOT NULL
+);
+
+CREATE TABLE statuses (
+    status_id SERIAL PRIMARY KEY,
+    status_name VARCHAR(20) NOT NULL
+);
+
+CREATE TABLE users (
+    user_id SERIAL PRIMARY KEY,
+    user_login VARCHAR(30) NOT NULL UNIQUE,
+    user_password BYTEA NOT NULL,
+    user_name VARCHAR(30) NOT NULL,
+    user_email VARCHAR(40) NOT NULL UNIQUE,
+    role_id INT REFERENCES roles(role_id)
+);
+
+CREATE TABLE tokens (
+    token_id SERIAL PRIMARY KEY,
+    token_value VARCHAR(255) NOT NULL,
+    user_id INT REFERENCES users(user_id)
+);
+
+CREATE TABLE orders (
+    order_id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(user_id),
+    created_at TIMESTAMP DEFAULT now(),
+    total_price NUMERIC(10,2),
+    status_id INT REFERENCES statuses(status_id)
+);
+
+CREATE TABLE orderitems (
+    order_item_id SERIAL PRIMARY KEY,
+    order_id INT REFERENCES orders(order_id),
+    product_id INT REFERENCES products(product_id),
+    quantity INT NOT NULL
+);
+
+CREATE TABLE cartitems (
+    cart_item_id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    product_id INT NOT NULL REFERENCES products(product_id) ON DELETE CASCADE,
+    quantity INT NOT NULL,
+    total_price NUMERIC(10,2) NOT NULL
+);
+
+-- ----------------------------
+-- Начальные данные (пример)
+-- ----------------------------
+INSERT INTO roles(role_name) VALUES 
+('user'), 
+('admin');
+
+INSERT INTO statuses(status_name) VALUES 
+('Оформляется'), 
+('Оплачен'), 
+('Отправлен'), 
+('Отменен'),
+('Доставлен');
+
+INSERT INTO products(product_name, product_price, units_in_stock) VALUES
+('iPhone 15', 1200.00, 15),
+('MacBook Pro', 2500.00, 10),
+('AirPods Pro', 250.00, 30),
+('iPad Air', 600.00, 20),
+('Apple Watch', 450.00, 25);
