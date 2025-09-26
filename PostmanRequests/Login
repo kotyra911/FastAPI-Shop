@@ -1,0 +1,7 @@
+
+curl --location 'http://localhost:port/login' \
+--header 'Content-Type: application/json' \
+--data '{
+  "user_login": "NewUser",
+  "user_password": "12345"
+}'

@@ -1,0 +1,6 @@
+
+curl --location --request DELETE 'http://localhost:port/products/delete' \
+--header 'Content-Type: application/json' \
+--data '{
+ "product_id": 8
+}'

@@ -1,0 +1,7 @@
+
+curl --location --request PATCH 'http://localhost:port/users/1/role/edit' \
+--header 'Content-Type: application/json' \
+--data '{
+    "user_id": 1,
+    "role_id": 2
+}'

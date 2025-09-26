@@ -1,0 +1,8 @@
+
+curl --location 'http://localhost:port/products/add' \
+--header 'Content-Type: application/json' \
+--data '{
+    "product_name": "Новый товар",
+    "product_price": 200.0,
+    "units_in_stock": 10
+}'

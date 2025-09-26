@@ -1,0 +1,5 @@
+
+curl --location --request PATCH 'http://localhost:port/users/4/edit' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--data-urlencode 'user_password=11111' \
+--data-urlencode 'user_login=changedlogin'

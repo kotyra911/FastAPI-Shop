@@ -1,0 +1,7 @@
+
+curl --location --request PATCH 'http://localhost:port/orders/status/edit' \
+--header 'Content-Type: application/json' \
+--data '{
+    "order_id": 1,
+    "status_id": 3
+}'

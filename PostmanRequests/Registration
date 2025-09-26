@@ -1,0 +1,11 @@
+
+curl --location 'http://localhost:port/register' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "user_login": "NewUser",
+  "user_password": "12345",
+  "user_name": "Name",
+  "user_email": "email@example.com",
+  "check_password": "12345"
+}'
+

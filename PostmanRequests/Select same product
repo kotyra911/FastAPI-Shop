@@ -1,0 +1,3 @@
+
+curl --location 'http://localhost:port/products/1' \
+--data ''

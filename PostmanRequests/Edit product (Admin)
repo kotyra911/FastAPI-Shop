@@ -1,0 +1,7 @@
+
+curl --location --request PATCH 'http://localhost:port/products/edit' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--data-urlencode 'product_id=4' \
+--data-urlencode 'product_name=Changed Product' \
+--data-urlencode 'product_price=12345' \
+--data-urlencode 'units_in_stock=0'
