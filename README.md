@@ -37,7 +37,7 @@ Backend для интернет-магазина на FastAPI + PostgreSQL (уч
 
 ### .py
 1. tests/ --> Тесты (pytest)
-2. handler.py --> Содержит сам app а также все эндпоинты
+2. handler.py --> Содержит сам app, а также все эндпоинты
 3. database.py --> Содержит движок, фабрику сессий и функцию по созданию новой сессии
 4. models.py --> ORM модели базы данных
 5. schemas.py --> Pydantic-схемы
