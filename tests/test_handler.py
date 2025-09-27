@@ -6,7 +6,7 @@ from database import engine
 from fastapi.testclient import TestClient
 from handler import app
 from sqlalchemy.orm import Session
-from models import Product, User, Role, Status, Token
+from models import Product, User, Role, Status, Token, CartItem
 from database import SessionLocal
 
 client = TestClient(app)
@@ -45,8 +45,7 @@ def db_session():
 def test_det_all_products(db_session: Session):
     response = client.get("/products")
     assert response.status_code == 200
-    products_from_db = db_session.query(Product).all()
-    assert products_from_db is not None
+    assert isinstance(response.json(), list)  # Проверяем, что пришел именно список строк
 
 # Проверка эндпоинта регистрации нового пользователя
 def test_register(db_session: Session):
@@ -90,18 +89,11 @@ def test_register(db_session: Session):
 
 # Проверка эндпоинта аутентификации пользователя
 def test_login(db_session: Session):
-    # Первичная регистрация
-    data_to_send = {"user_login": "NewUser",
-                    "user_password": "12345",
-                    "user_name": "Andrey",
-                    "user_email": "email@example.com",
-                    "check_password": "12345"}
-    # Данные для логина
+
     data_to_login = {
         "user_login": "NewUser",
         "user_password": "12345"
     }
-    response = client.post("/register", json=data_to_send)
     user_id = db_session.query(User).filter(User.user_login == data_to_login.get("user_login")).first().user_id
     token_from_db = db_session.query(Token).filter(Token.user_id == user_id).first()
     db_session.delete(token_from_db)
@@ -118,13 +110,88 @@ def test_login(db_session: Session):
     response = client.post("/login", json=data_to_login)
     assert response.status_code == 200
     assert response.json() == {"message": "You are already logged in!"}  # В ответ ожидаем сообщение
-
-    """db_session.delete(token_from_db)
-
+    # Удаляем токен из базы, чтобы сервер понял, что не прошли аутентификацию
+    db_session.delete(token_from_db)
+    db_session.commit()
+    # Данные, которых нет в бд
     data_to_incorrect_login = {
         "user_login": "blablabla",
         "user_password": "1756456"
     }
-    response = client.post("/register", json=data_to_incorrect_login)
-    assert response.status_code == 422
-    assert response.json() == {"message": "Incorrect login or password!"}"""
+    response = client.post("/login", json=data_to_incorrect_login)
+    assert response.status_code == 200
+    assert response.json() == {"message": "Incorrect login or password!"}
+
+
+def test_select_same_product():
+    response = client.get("/products/1")
+    assert response.status_code == 200
+    assert response.json()["product_id"] == 1
+    assert isinstance(response.json()["product_price"], float)
+
+def test_cart_add_product(db_session: Session):
+    data_to_send = {
+        "product_id": 1,
+        "quantity": 1
+    }
+    # Проверяем случай, если не прошедший аутентификацию пользователь, пытается открыть корзину
+    response = client.post("/products/1/add",json=data_to_send)
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Please login first!"}
+
+    data_to_login = {
+        "user_login": "NewUser",
+        "user_password": "12345"
+    }
+
+    data_to_send = {
+                    "product_id": 1,
+                    "quantity": 1
+                   }
+    response = client.post("/login", json=data_to_login)  # Логинимся
+
+    response = client.post("/products/1/add",json=data_to_send)  # Отправляем нормальный запрос
+    # Проверяем, что ответ пришел нормальный
+    assert response.status_code == 200
+    assert response.json() == {'message': 'Added to your cart!'}
+    # Проверяем, что в базу занеслись правильные данные
+    user_id = db_session.query(User).filter(User.user_login == data_to_login.get("user_login")).first().user_id
+    cart_data = db_session.query(CartItem).filter(CartItem.user_id == user_id).first()
+    assert cart_data.quantity == data_to_send.get("quantity")
+
+    # Пробуем добавить товар, которого нет на складе
+    product_from_db = db_session.query(Product).filter(Product.product_id == data_to_send.get("product_id")).first()
+    product_from_db.units_in_stock = 0
+    db_session.commit()
+    response = client.post("/products/1/add",json=data_to_send)
+    assert response.status_code == 200
+    assert response.json() == {'message': 'The product is out of stock :('}
+
+    # Запрос на товар, который не существует
+    data_to_send = {
+        "product_id": 27,
+        "quantity": 1
+    }
+    response = client.post("/products/1/add",json=data_to_send)
+    assert response.status_code == 200
+    assert response.json() == {"message": "This product does not exist!"}
+
+    # Отправка запроса без каких либо данных
+    response = client.post("/products/1/add")
+    assert response.status_code == 422  # Ответ содержит ругательства, что не заполнены нужные поля
+
+
+def test_get_same_cart():
+
+    # Получаем корзину будучи аутентифицированным пользователем
+    response = client.get("users/1/cart")
+    assert response.status_code == 200
+    assert response.json()["items"][0].get("product_name") == "Iphone 15"
+    assert response.json()["total_price"] == 1500
+
+    # Пытаемся получить корзину без аутентификации
+    client.cookies.clear()
+    response = client.get("users/1/cart")
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Please login first!"}
+

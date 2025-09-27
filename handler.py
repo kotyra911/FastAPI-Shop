@@ -335,28 +335,34 @@ def add_to_cart(cart: CartItemsToAdd, request: Request, db: Session = Depends(ge
     user_id = user_id_by_token(db, request)
     if user_id:
             # Проверка, есть ли этот товар в наличии (в реализации на сайте просто не будет высвечиваться товар, если его нет)
-            units_in_stock = db.query(Product).filter(Product.product_id == cart.product_id).first().units_in_stock
-            if units_in_stock == 0:
+            product_from_db = db.query(Product).filter(Product.product_id == cart.product_id).first()
+            if product_from_db is None:
                 return {
-                    'message': 'The product is out of stock :('
+                    "message": "This product does not exist!",
                 }
             else:
-                # Получение данных о товаре, который пользователь хочет добавить
-                product_price = db.query(Product).filter(Product.product_id == cart.product_id).first().product_price
-                total_price = product_price * cart.quantity
-                # Создание новой корзины через объект ORM
-                new_cart = CartItem(
-                                    user_id = user_id,
-                                    product_id = cart.product_id,
-                                    quantity = cart.quantity,
-                                    total_price = total_price,
-                )
-                db.add(new_cart)
-                db.commit()
-                db.refresh(new_cart)
-                return {
-                    'message': 'Added to your cart!'
-                }
+                units_in_stock = product_from_db.units_in_stock
+                if units_in_stock == 0:
+                    return {
+                        'message': 'The product is out of stock :('
+                    }
+                else:
+                    # Получение данных о товаре, который пользователь хочет добавить
+                    product_price = db.query(Product).filter(Product.product_id == cart.product_id).first().product_price
+                    total_price = product_price * cart.quantity
+                    # Создание новой корзины через объект ORM
+                    new_cart = CartItem(
+                                        user_id = user_id,
+                                        product_id = cart.product_id,
+                                        quantity = cart.quantity,
+                                        total_price = total_price,
+                    )
+                    db.add(new_cart)
+                    db.commit()
+                    db.refresh(new_cart)
+                    return {
+                        'message': 'Added to your cart!'
+                    }
     else:
         raise HTTPException(status_code=401, detail="Please login first!")
 

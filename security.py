@@ -85,7 +85,11 @@ def check_cookies_token(token_from_cookies, db):
 
 def user_id_by_token(db, request):
     token_from_cookies = request.cookies.get('auth_token')
-    user_id = db.query(Token).filter(Token.token_value == token_from_cookies).first().user_id
+    if db.query(Token).filter(Token.token_value == token_from_cookies).first() is None:
+        return None
+    else:
+        user_id = db.query(Token).filter(Token.token_value == token_from_cookies).first().user_id
+
     return user_id
 
 
